@@ -39,8 +39,8 @@ function swf_options_page() {
             submit_button();
             ?>
         </form>
-        <form method="post" action="">
-            <input type="hidden" name="swf_scan_posts" value="1">
+        <form method="post" action="<?php echo admin_url('admin-post.php'); ?>">
+            <input type="hidden" name="action" value="swf_scan_posts">
             <?php submit_button('Scan Existing Posts for Sensitive Words'); ?>
         </form>
     </div>
@@ -140,24 +140,30 @@ function swf_scan_existing_posts() {
     );
 
     $posts = get_posts($args);
+    $found_sensitive_words = false;
 
     foreach ($posts as $post) {
         $content = $post->post_content;
         $filtered_content = swf_filter_sensitive_words($content);
 
         if ($filtered_content != $content) {
+            $found_sensitive_words = true;
             wp_update_post(array('ID' => $post->ID, 'post_content' => $filtered_content));
         }
     }
 
-    wp_redirect(admin_url('options-general.php?page=sensitive-word-filter&scanned=1'));
+    if ($found_sensitive_words) {
+        wp_redirect(admin_url('options-general.php?page=sensitive-word-filter&scanned=1&found=1'));
+    } else {
+        wp_redirect(admin_url('options-general.php?page=sensitive-word-filter&scanned=1&found=0'));
+    }
     exit;
 }
 
 // 添加扫描完成的通知
 add_action('admin_notices', 'swf_scan_notice');
 function swf_scan_notice() {
-     if (isset($_GET['scanned']) && $_GET['scanned'] == 1) {
+    if (isset($_GET['scanned']) && $_GET['scanned'] == 1) {
         if (isset($_GET['found']) && $_GET['found'] == 1) {
             echo '<div class="notice notice-success is-dismissible"><p>扫描完成，发现敏感词，敏感词已被替换。</p></div>';
         } else {
