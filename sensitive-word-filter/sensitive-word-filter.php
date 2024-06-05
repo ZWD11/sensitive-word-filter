@@ -2,7 +2,7 @@
 /*
 Plugin Name: Sensitive Word Filter
 Description: 检测和替换敏感词或违禁词。
-Version: 1.0
+Version: 1.1
 Author: WenSong
 */
 
@@ -71,7 +71,7 @@ function swf_settings_init() {
 function swf_sensitive_words_render() {
     $options = get_option('swf_settings');
     ?>
-    <textarea cols='60' rows='15' name='swf_settings[swf_sensitive_words]'><?php echo isset($options['swf_sensitive_words']) ? esc_textarea($options['swf_sensitive_words']) : ''; ?></textarea>
+    <textarea cols='40' rows='5' name='swf_settings[swf_sensitive_words]'><?php echo isset($options['swf_sensitive_words']) ? esc_textarea($options['swf_sensitive_words']) : ''; ?></textarea>
     <p>输入敏感词，多个词请用逗号分隔。</p>
     <?php
 }
@@ -141,6 +141,7 @@ function swf_scan_existing_posts() {
 
     $posts = get_posts($args);
     $found_sensitive_words = false;
+    $affected_posts = array();
 
     foreach ($posts as $post) {
         $content = $post->post_content;
@@ -148,12 +149,14 @@ function swf_scan_existing_posts() {
 
         if ($filtered_content != $content) {
             $found_sensitive_words = true;
+            $affected_posts[] = $post->post_title;
             wp_update_post(array('ID' => $post->ID, 'post_content' => $filtered_content));
         }
     }
 
     if ($found_sensitive_words) {
-        wp_redirect(admin_url('options-general.php?page=sensitive-word-filter&scanned=1&found=1'));
+        $affected_posts_str = implode(',', $affected_posts);
+        wp_redirect(admin_url('options-general.php?page=sensitive-word-filter&scanned=1&found=1&posts=' . urlencode($affected_posts_str)));
     } else {
         wp_redirect(admin_url('options-general.php?page=sensitive-word-filter&scanned=1&found=0'));
     }
@@ -165,7 +168,13 @@ add_action('admin_notices', 'swf_scan_notice');
 function swf_scan_notice() {
     if (isset($_GET['scanned']) && $_GET['scanned'] == 1) {
         if (isset($_GET['found']) && $_GET['found'] == 1) {
-            echo '<div class="notice notice-success is-dismissible"><p>扫描完成，发现敏感词，敏感词已被替换。</p></div>';
+            $posts = isset($_GET['posts']) ? explode(',', urldecode($_GET['posts'])) : array();
+            $posts_list = '<ul>';
+            foreach ($posts as $post_title) {
+                $posts_list .= '<li>' . esc_html($post_title) . '</li>';
+            }
+            $posts_list .= '</ul>';
+            echo '<div class="notice notice-success is-dismissible"><p>扫描完成，发现敏感词，敏感词已被替换。以下是受影响的文章标题：</p>' . $posts_list . '</div>';
         } else {
             echo '<div class="notice notice-success is-dismissible"><p>扫描完成，暂未发现敏感词。</p></div>';
         }
